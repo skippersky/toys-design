@@ -1,7 +1,5 @@
+import { EditorWorkspace } from "@/components/editor/editor-workspace";
+
 export default function Home() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
-      <h1 className="text-4xl font-semibold tracking-tight">StatueForge AI</h1>
-    </main>
-  );
+  return <EditorWorkspace />;
 }
