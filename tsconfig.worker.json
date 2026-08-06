@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "declaration": false,
+    "incremental": false,
+    "module": "ES2022",
+    "noEmit": false,
+    "outDir": "./worker-runtime",
+    "rootDir": "./src",
+    "sourceMap": false,
+    "target": "ES2022"
+  },
+  "include": ["src/workers/export-worker.ts"]
+}
