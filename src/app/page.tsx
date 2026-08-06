@@ -1,5 +1,7 @@
-import { EditorWorkspace } from "@/components/editor/editor-workspace";
+import { ProjectGallery } from "@/components/projects/project-gallery";
+import { listProjects } from "@/lib/projects-server";
 
-export default function Home() {
-  return <EditorWorkspace />;
+export default async function Home() {
+  const projects = await listProjects();
+  return <ProjectGallery projects={projects} />;
 }

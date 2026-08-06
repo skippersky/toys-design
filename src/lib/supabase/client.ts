@@ -1,9 +1,11 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { requiredEnv } from "@/lib/env";
+
+import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 
 export function createClient() {
-  return createBrowserClient(
-    requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-  );
+  const config = getPublicSupabaseConfig();
+  if (!config) {
+    throw new Error("Missing public Supabase environment variables.");
+  }
+  return createBrowserClient(config.url, config.anonKey);
 }
