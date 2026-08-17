@@ -1,0 +1,19 @@
+[A-16 Runtime Verify] 2026-08-11T12:22:51.764Z
+project.id=630a7f37-25ba-4944-81be-04a88eed8ba2
+assets.id=5499102a-3b64-435d-81cf-dbdb0ccbec6f
+submitted assetId matches assets.id: true
+
+PSD route=200 download=200
+PSD events=progress -> progress -> progress -> progress -> complete
+PSD sha256=038423308f132a27655b4e5d221ef22cbe25514fe9d45738afcd1419b50e643b
+PSD layers=2 roots=QA Text Group, QA Vector Badge
+PSD text=StatueForge QA
+PSD shape vectorMask=true
+
+ZIP route=200 download=200
+ZIP events=progress -> progress -> progress -> progress -> progress -> complete
+ZIP sha256=66e961a42bcab57cf6f336c4334621545901944ce5a2b76b56ec44398f2e5f3f
+ZIP master.psd=true
+ZIP render_preview.png=true
+
+Asset was not found occurrences=0

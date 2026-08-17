@@ -3,24 +3,27 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type {
+  GenerationProgressEvent,
+  GenerationResult,
+  StatueGenerationInput,
+} from "@/types/generation";
+
 export type GenerationStatus =
   | "idle"
   | "queued"
   | "running"
+  | "finalizing"
   | "paused"
   | "complete"
   | "error";
 
-export interface GenerationResultLayer {
-  id: string;
-  name: string;
-  type: "image" | "mask" | "depth" | "metadata";
-  oss_key: string;
-}
+export type ActiveGenerationStatus = "queued" | "running" | "finalizing";
 
-export interface GenerationResult {
-  asset_id: string;
-  layers: GenerationResultLayer[];
+export function isActiveGenerationStatus(
+  status: GenerationStatus,
+): status is ActiveGenerationStatus {
+  return status === "queued" || status === "running" || status === "finalizing";
 }
 
 interface GenerationState {
@@ -29,20 +32,15 @@ interface GenerationState {
   previewUrl?: string;
   result?: GenerationResult;
   error?: string;
+  errorCode?: string;
   lastRequest?: StatueGenerationInput;
   setQueued: (input: StatueGenerationInput) => void;
   setPaused: () => void;
-  setProgress: (progress: number, previewUrl?: string) => void;
+  resume: (status: ActiveGenerationStatus) => void;
+  setProgress: (event: GenerationProgressEvent) => void;
   setComplete: (result: GenerationResult) => void;
-  setError: (error: string) => void;
+  setError: (error: string, code?: string) => void;
   reset: () => void;
-}
-
-export interface StatueGenerationInput {
-  style: "classic" | "marble" | "bronze" | "toy" | "premium";
-  ratio: string;
-  ip_ref_url?: string;
-  prompt: string;
 }
 
 export const useGenerationStore = create<GenerationState>()(
@@ -57,26 +55,38 @@ export const useGenerationStore = create<GenerationState>()(
           previewUrl: undefined,
           result: undefined,
           error: undefined,
+          errorCode: undefined,
           lastRequest: input,
         }),
-      setPaused: () => set({ status: "paused" }),
-      setProgress: (progress, previewUrl) =>
+      setPaused: () =>
+        set((state) =>
+          isActiveGenerationStatus(state.status) ? { status: "paused" } : state,
+        ),
+      resume: (status) =>
+        set((state) => (state.status === "paused" ? { status } : state)),
+      setProgress: (event) =>
         set({
-          status: "running",
-          progress,
-          previewUrl,
+          status: event.status,
+          progress:
+            event.total === 0
+              ? 0
+              : Math.min(1, Math.max(0, event.step / event.total)),
+          previewUrl: event.preview_url,
         }),
       setComplete: (result) =>
         set({
           status: "complete",
           progress: 1,
+          previewUrl: result.preview_url,
           result,
           error: undefined,
+          errorCode: undefined,
         }),
-      setError: (error) =>
+      setError: (error, errorCode) =>
         set({
           status: "error",
           error,
+          errorCode,
         }),
       reset: () =>
         set({
@@ -85,19 +95,49 @@ export const useGenerationStore = create<GenerationState>()(
           previewUrl: undefined,
           result: undefined,
           error: undefined,
+          errorCode: undefined,
           lastRequest: undefined,
         }),
     }),
     {
       name: "statueforge-generation",
       partialize: (state) => ({
-        status: state.status,
-        progress: state.progress,
+        status:
+          isActiveGenerationStatus(state.status) || state.status === "paused"
+            ? "idle"
+            : state.status,
+        progress:
+          isActiveGenerationStatus(state.status) || state.status === "paused"
+            ? 0
+            : state.progress,
         previewUrl: state.previewUrl,
         result: state.result,
         error: state.error,
+        errorCode: state.errorCode,
         lastRequest: state.lastRequest,
       }),
+      merge: (persistedState, currentState) => {
+        const restored = {
+          ...currentState,
+          ...(persistedState && typeof persistedState === "object"
+            ? persistedState
+            : {}),
+        };
+        if (
+          isActiveGenerationStatus(restored.status) ||
+          restored.status === "paused"
+        ) {
+          return {
+            ...restored,
+            status: "idle",
+            progress: 0,
+            previewUrl: undefined,
+            error: undefined,
+            errorCode: undefined,
+          };
+        }
+        return restored;
+      },
     },
   ),
 );

@@ -1,0 +1,13 @@
+[Config] Supabase URL: configured
+[Config] Supabase anon key: configured
+[Config] ComfyUI checkpoint: DreamShaper8_LCM.safetensors
+[Supabase RPC] HTTP 200
+[Supabase RPC] {"ok":false,"code":"unauthorized"}
+[ComfyUI] HTTP 200
+[ComfyUI] version=0.3.59 device=privateuseone mode=directml
+[Local API unauthenticated] HTTP 401
+[Local API unauthenticated] {"code":"unauthorized","message":"Authentication is required."}
+[Generation] prompt_id=01b5a19d-adc8-4e0f-b246-1906f411319d status=success duration_seconds=117.89
+[Generation] output=.runtime/comfyui/output/statueforge/runtime-verification_00001_.png dimensions=512x512 bytes=237336
+[Generation] sha256=4DD80CB4F0B349CECFC88E25DAC0996721B61390A90F948AA4AE8990DDF34495
+[One-click app] http://127.0.0.1:3000/ HTTP 200

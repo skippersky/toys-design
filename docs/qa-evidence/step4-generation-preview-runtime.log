@@ -1,0 +1,8 @@
+[Generation Verify] status=200 elapsed_ms=4615
+[Generation Verify] user=aad7a58c-51ee-45a7-9ced-f99e81afba55
+[Generation Verify] events=progress,progress,progress,complete
+[Generation Verify] asset_id=1f3668dc-4a43-4b24-8a15-1b0abd45d10d
+[Watermark Verify] preview_status=200
+[Watermark Verify] dimensions=1200x675
+[Watermark Verify] sha256=53823d3fa027c936f07fb1caf766fa4dbc993ac3f80263787679785346de22a1
+[Watermark Verify] signed_url=https://aninhdtrmpftmtanqyyy.supabase.co/storage/v1/object/sign/assets/aad7a58c-51ee-45a7-9ced-f99e81afba55/previews/qa-prompt-watermark.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zMTcyZTlkYS0yMjdlLTQzNzUtOGQ3OS1mOWE1NWU4ZjJiMjUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhc3NldHMvYWFkN2E1OGMtNTFlZS00NWE3LTljZWQtZjk5ZTgxYWZiYTU1L3ByZXZpZXdzL3FhLXByb21wdC13YXRlcm1hcmsucG5nIiwic2NvcGUiOiJkb3dubG9hZCIsImlhdCI6MTc4NjQ0MTAzMSwiZXhwIjoxNzg2NDQxMzMxfQ.e7qr43LbnGVbHAjOpXjjaq66_Nj3sRRrzhhaV_CvKko

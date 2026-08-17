@@ -78,6 +78,7 @@ export interface ComfyUIProgress {
   total: number;
   node?: string;
   previewUrl?: string;
+  error?: string;
   completed: boolean;
 }
 
@@ -85,6 +86,12 @@ export interface ComfyUIImageOutput {
   filename: string;
   subfolder: string;
   type: "input" | "output" | "temp";
+}
+
+export interface ComfyUIImageUploadResponse {
+  name: string;
+  subfolder: string;
+  type: "input";
 }
 
 export interface ComfyUIOutput {
@@ -102,7 +109,7 @@ export interface ComfyUIHistoryEntry {
   };
 }
 
-export type ComfyUIHistory = Record<string, ComfyUIHistoryEntry>;
+export type ComfyUIHistory = Record<string, ComfyUIHistoryEntry | undefined>;
 
 export type ComfyUIProgressCallback = (progress: ComfyUIProgress) => void;
 

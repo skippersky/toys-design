@@ -97,4 +97,32 @@ describe("editor store", () => {
     useEditorStore.getState().undo();
     expect(useEditorStore.getState().layers[0]?.x).toBe(20);
   });
+
+  it("enables undo immediately after an edit", () => {
+    useEditorStore.getState().resetEditor({
+      layers: [createShape("existing", 20)],
+      selectedLayerIds: [],
+    });
+    expect(useEditorStore.getState().canUndo).toBe(false);
+
+    useEditorStore.getState().addLayer(createShape("added", 160));
+
+    expect(useEditorStore.getState().canUndo).toBe(true);
+  });
+
+  it("duplicates a selected layer as one undoable operation", () => {
+    const store = useEditorStore.getState();
+    store.resetEditor({
+      layers: [createShape("one", 0)],
+      selectedLayerIds: ["one"],
+    });
+
+    useEditorStore.getState().duplicateLayers();
+
+    expect(useEditorStore.getState().layers).toHaveLength(2);
+    expect(useEditorStore.getState().layers[1]?.name).toContain("copy");
+    expect(useEditorStore.getState().canUndo).toBe(true);
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().layers).toHaveLength(1);
+  });
 });

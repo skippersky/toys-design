@@ -1,6 +1,13 @@
 {
   "name": "statueforge-ai",
   "version": "0.1.0",
+  "packageManager": "pnpm@10.12.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
   "private": true,
   "scripts": {
     "worker:build": "tsc --project tsconfig.worker.json",
@@ -12,7 +19,20 @@
     "start": "next start",
     "lint": "eslint",
     "pretest": "pnpm run worker:build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "qa:step4-backend": "node verify-step4-backend.mjs",
+    "qa:step4-export": "pnpm run worker:build && node --expose-gc verify-export-artifacts.mjs",
+    "qa:step4-commercial": "node verify-step4-commercial-baseline.mjs",
+    "qa:step4-preview": "node verify-preview-api.mjs",
+    "qa:step5-ai": "node verify-step5-ai.mjs",
+    "ai:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/comfyui/install.ps1",
+    "ai:start": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/comfyui/start.ps1",
+    "ai:stop": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/comfyui/stop.ps1",
+    "ai:health": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/comfyui/health.ps1",
+    "ai:install:linux": "bash scripts/comfyui/install.sh",
+    "ai:start:linux": "bash scripts/comfyui/start.sh",
+    "ai:stop:linux": "bash scripts/comfyui/stop.sh",
+    "ai:health:linux": "bash scripts/comfyui/health.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

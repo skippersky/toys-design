@@ -18,6 +18,10 @@ const eslintConfig = defineConfig([
       },
     },
   },
+  {
+    files: ["verify-*.mjs"],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
   eslintConfigPrettier,
   // Override default ignores of eslint-config-next.
   globalIgnores([
@@ -26,6 +30,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "worker-runtime/**",
+    ".runtime/**",
     "next-env.d.ts",
   ]),
 ]);

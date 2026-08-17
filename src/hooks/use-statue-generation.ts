@@ -1,115 +1,110 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+
 import {
-  type GenerationResult,
-  type StatueGenerationInput,
+  isActiveGenerationStatus,
+  type ActiveGenerationStatus,
   useGenerationStore,
 } from "@/store/generation-store";
-
-interface ProgressEventData {
-  step: number;
-  total: number;
-  preview_url?: string;
-}
-
-interface ErrorEventData {
-  code: string;
-  message: string;
-}
-
-type SseEvent =
-  | { event: "progress"; data: ProgressEventData }
-  | { event: "complete"; data: GenerationResult }
-  | { event: "error"; data: ErrorEventData };
+import type {
+  GenerationErrorEvent,
+  GenerationProgressEvent,
+  GenerationResult,
+  GenerationSseEvent,
+  StatueGenerationInput,
+} from "@/types/generation";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isGenerationResult(value: unknown): value is GenerationResult {
-  if (!isRecord(value) || typeof value.asset_id !== "string") {
-    return false;
-  }
-
+function isProgressEvent(value: unknown): value is GenerationProgressEvent {
   return (
-    Array.isArray(value.layers) &&
-    value.layers.every(
-      (layer) =>
-        isRecord(layer) &&
-        typeof layer.id === "string" &&
-        typeof layer.name === "string" &&
-        typeof layer.oss_key === "string" &&
-        (layer.type === "image" ||
-          layer.type === "mask" ||
-          layer.type === "depth" ||
-          layer.type === "metadata"),
-    )
+    isRecord(value) &&
+    typeof value.task_id === "string" &&
+    (value.status === "queued" ||
+      value.status === "running" ||
+      value.status === "finalizing") &&
+    typeof value.step === "number" &&
+    typeof value.total === "number" &&
+    (value.prompt_id === undefined || typeof value.prompt_id === "string") &&
+    (value.preview_url === undefined || typeof value.preview_url === "string")
   );
 }
 
-function parseSseBlock(block: string): SseEvent | null {
-  const event = block
-    .split("\n")
-    .find((line) => line.startsWith("event: "))
-    ?.slice("event: ".length);
-  const dataLine = block
-    .split("\n")
-    .find((line) => line.startsWith("data: "))
-    ?.slice("data: ".length);
+function isImageLayer(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.type === "image" &&
+    typeof value.id === "string" &&
+    typeof value.asset_id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.src === "string" &&
+    typeof value.originalWidth === "number" &&
+    typeof value.originalHeight === "number"
+  );
+}
 
-  if (!event || !dataLine) {
+function isGenerationResult(value: unknown): value is GenerationResult {
+  return (
+    isRecord(value) &&
+    typeof value.task_id === "string" &&
+    typeof value.prompt_id === "string" &&
+    typeof value.project_id === "string" &&
+    typeof value.asset_id === "string" &&
+    typeof value.credits_remaining === "number" &&
+    typeof value.preview_url === "string" &&
+    isImageLayer(value.layer)
+  );
+}
+
+function isErrorEvent(value: unknown): value is GenerationErrorEvent {
+  return (
+    isRecord(value) &&
+    typeof value.code === "string" &&
+    typeof value.message === "string"
+  );
+}
+
+export function parseGenerationSseBlock(
+  block: string,
+): GenerationSseEvent | null {
+  const lines = block.replace(/\r\n/gu, "\n").split("\n");
+  const event = lines
+    .find((line) => line.startsWith("event:"))
+    ?.slice("event:".length)
+    .trim();
+  const dataText = lines
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice("data:".length).trimStart())
+    .join("\n");
+  if (!event || !dataText) {
     return null;
   }
 
-  const data: unknown = JSON.parse(dataLine);
-
-  if (
-    event === "progress" &&
-    isRecord(data) &&
-    typeof data.step === "number" &&
-    typeof data.total === "number"
-  ) {
-    return {
-      event,
-      data: {
-        step: data.step,
-        total: data.total,
-        preview_url:
-          typeof data.preview_url === "string" ? data.preview_url : undefined,
-      },
-    };
+  let data: unknown;
+  try {
+    data = JSON.parse(dataText) as unknown;
+  } catch {
+    return null;
   }
-
+  if (event === "progress" && isProgressEvent(data)) {
+    return { event, data };
+  }
   if (event === "complete" && isGenerationResult(data)) {
-    return {
-      event,
-      data,
-    };
+    return { event, data };
   }
-
-  if (
-    event === "error" &&
-    isRecord(data) &&
-    typeof data.code === "string" &&
-    typeof data.message === "string"
-  ) {
-    return {
-      event,
-      data: {
-        code: data.code,
-        message: data.message,
-      },
-    };
+  if (event === "error" && isErrorEvent(data)) {
+    return { event, data };
   }
-
   return null;
 }
 
 async function readSse(
   response: Response,
-  onEvent: (event: SseEvent) => void,
-) {
+  onEvent: (event: GenerationSseEvent) => void,
+): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) {
     throw new Error("SSE response did not include a readable body.");
@@ -118,33 +113,64 @@ async function readSse(
   const decoder = new TextDecoder();
   let buffer = "";
   let done = false;
-
   while (!done) {
     const chunk = await reader.read();
     done = chunk.done;
-    buffer += decoder.decode(chunk.value, { stream: !done });
-
+    buffer += decoder
+      .decode(chunk.value, { stream: !done })
+      .replace(/\r\n/gu, "\n");
     let boundary = buffer.indexOf("\n\n");
     while (boundary >= 0) {
-      const block = buffer.slice(0, boundary);
+      const event = parseGenerationSseBlock(buffer.slice(0, boundary));
       buffer = buffer.slice(boundary + 2);
-      const event = parseSseBlock(block);
       if (event) {
         onEvent(event);
       }
       boundary = buffer.indexOf("\n\n");
     }
   }
+  if (buffer.trim()) {
+    const event = parseGenerationSseBlock(buffer);
+    if (event) {
+      onEvent(event);
+    }
+  }
+}
+
+export async function readGenerationHttpError(
+  response: Response,
+): Promise<GenerationErrorEvent> {
+  const body: unknown = await response.json().catch(() => null);
+  if (isErrorEvent(body)) {
+    return body;
+  }
+  return {
+    code: response.status === 402 ? "insufficient_credits" : "request_failed",
+    message:
+      response.status === 402
+        ? "额度不足，请充值后重试。"
+        : `Generation request failed (${String(response.status)}).`,
+  };
 }
 
 export function useStatueGeneration() {
   const abortRef = useRef<AbortController | null>(null);
   const pausedRef = useRef(false);
-  const latestProgressRef = useRef<{
-    progress: number;
-    previewUrl?: string;
-  } | null>(null);
-  const store = useGenerationStore();
+  const statusBeforePauseRef = useRef<ActiveGenerationStatus>("queued");
+  const latestProgressRef = useRef<GenerationProgressEvent | null>(null);
+  const status = useGenerationStore((state) => state.status);
+  const progress = useGenerationStore((state) => state.progress);
+  const previewUrl = useGenerationStore((state) => state.previewUrl);
+  const result = useGenerationStore((state) => state.result);
+  const error = useGenerationStore((state) => state.error);
+  const errorCode = useGenerationStore((state) => state.errorCode);
+  const setQueued = useGenerationStore((state) => state.setQueued);
+  const setPaused = useGenerationStore((state) => state.setPaused);
+  const resume = useGenerationStore((state) => state.resume);
+  const setProgress = useGenerationStore((state) => state.setProgress);
+  const setComplete = useGenerationStore((state) => state.setComplete);
+  const setError = useGenerationStore((state) => state.setError);
+  const reset = useGenerationStore((state) => state.reset);
 
   const stopStream = useCallback(() => {
     abortRef.current?.abort();
@@ -152,11 +178,18 @@ export function useStatueGeneration() {
   }, []);
 
   const startGeneration = useCallback(
-    async (input: StatueGenerationInput) => {
+    async (input: StatueGenerationInput): Promise<GenerationResult | null> => {
       stopStream();
       const controller = new AbortController();
       abortRef.current = controller;
-      store.setQueued(input);
+      pausedRef.current = false;
+      statusBeforePauseRef.current = "queued";
+      latestProgressRef.current = null;
+      setQueued(input);
+      const streamState: {
+        completed?: GenerationResult;
+        error?: GenerationErrorEvent;
+      } = {};
 
       try {
         const response = await fetch("/api/generate/statue", {
@@ -168,79 +201,106 @@ export function useStatueGeneration() {
           body: JSON.stringify(input),
           signal: controller.signal,
         });
-
         if (!response.ok) {
-          const message = await response.text();
-          throw new Error(message || "Generation request failed.");
+          const error = await readGenerationHttpError(response);
+          setError(error.message, error.code);
+          return null;
         }
 
         await readSse(response, (event) => {
           if (event.event === "progress") {
-            const progress =
-              event.data.total === 0 ? 0 : event.data.step / event.data.total;
-            latestProgressRef.current = {
-              progress,
-              previewUrl: event.data.preview_url,
-            };
-
+            latestProgressRef.current = event.data;
+            statusBeforePauseRef.current = event.data.status;
             if (!pausedRef.current) {
-              store.setProgress(progress, event.data.preview_url);
+              setProgress(event.data);
             }
-          }
-
-          if (event.event === "complete") {
+          } else if (event.event === "complete") {
             pausedRef.current = false;
-            store.setComplete(event.data);
-          }
-
-          if (event.event === "error") {
+            streamState.completed = event.data;
+            setComplete(event.data);
+          } else {
             pausedRef.current = false;
-            store.setError(event.data.message);
+            streamState.error = event.data;
+            setError(event.data.message, event.data.code);
           }
         });
+        if (!streamState.completed && !streamState.error) {
+          setError(
+            "Generation stream ended before completion.",
+            "stream_incomplete",
+          );
+        }
+        return streamState.completed ?? null;
       } catch (error) {
         if (controller.signal.aborted) {
-          return;
+          return null;
         }
-
-        store.setError(
+        setError(
           error instanceof Error ? error.message : "Generation failed.",
+          "network_error",
         );
+        return null;
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+        }
       }
     },
-    [stopStream, store],
+    [setComplete, setError, setProgress, setQueued, stopStream],
   );
 
+  const cancelGeneration = useCallback((): void => {
+    stopStream();
+    pausedRef.current = false;
+    latestProgressRef.current = null;
+    reset();
+  }, [reset, stopStream]);
+
   useEffect(() => {
-    const handleVisibility = () => {
+    const handleVisibility = (): void => {
       if (document.visibilityState === "hidden") {
+        const currentStatus = useGenerationStore.getState().status;
+        if (!isActiveGenerationStatus(currentStatus)) {
+          return;
+        }
+        statusBeforePauseRef.current = currentStatus;
         pausedRef.current = true;
-        store.setPaused();
+        setPaused();
         return;
       }
-
+      if (!pausedRef.current) {
+        return;
+      }
       pausedRef.current = false;
       if (latestProgressRef.current) {
-        store.setProgress(
-          latestProgressRef.current.progress,
-          latestProgressRef.current.previewUrl,
-        );
+        setProgress(latestProgressRef.current);
+      } else {
+        resume(statusBeforePauseRef.current);
       }
     };
-
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
       stopStream();
+      const currentStatus = useGenerationStore.getState().status;
+      if (
+        isActiveGenerationStatus(currentStatus) ||
+        currentStatus === "paused"
+      ) {
+        reset();
+      }
     };
-  }, [stopStream, store]);
+  }, [reset, resume, setPaused, setProgress, stopStream]);
 
   return {
-    status: store.status,
-    progress: store.progress,
-    previewUrl: store.previewUrl,
-    result: store.result,
-    error: store.error,
+    status,
+    progress,
+    previewUrl,
+    result,
+    error,
+    errorCode,
     startGeneration,
+    stopGeneration: cancelGeneration,
+    reset,
   };
 }

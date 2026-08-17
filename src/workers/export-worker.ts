@@ -1,6 +1,7 @@
 import { ZipArchive } from "archiver";
 import {
   writePsdBuffer,
+  type BezierPath,
   type BlendMode as PsdBlendMode,
   type Layer as PsdLayer,
   type PixelData,
@@ -275,6 +276,171 @@ function shapeSvg(layer: ShapeLayer): Buffer {
   `);
 }
 
+function transformBezierPoint(matrix: Matrix, points: number[]): number[] {
+  const transformed: number[] = [];
+  for (let index = 0; index < points.length; index += 2) {
+    const point = transformPoint(matrix, points[index], points[index + 1]);
+    transformed.push(point.x, point.y);
+  }
+  return transformed;
+}
+
+function shapeVectorPath(layer: ShapeLayer, matrix: Matrix): BezierPath {
+  const width = Math.max(1, layer.width);
+  const height = Math.max(1, layer.height);
+  const kappa = 0.5522847498307936;
+  let knots: Array<{ linked: boolean; points: number[] }>;
+
+  if (layer.shape === "ellipse") {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const controlX = centerX * kappa;
+    const controlY = centerY * kappa;
+    knots = [
+      {
+        linked: true,
+        points: [
+          width,
+          centerY - controlY,
+          width,
+          centerY,
+          width,
+          centerY + controlY,
+        ],
+      },
+      {
+        linked: true,
+        points: [
+          centerX + controlX,
+          height,
+          centerX,
+          height,
+          centerX - controlX,
+          height,
+        ],
+      },
+      {
+        linked: true,
+        points: [0, centerY + controlY, 0, centerY, 0, centerY - controlY],
+      },
+      {
+        linked: true,
+        points: [centerX - controlX, 0, centerX, 0, centerX + controlX, 0],
+      },
+    ];
+  } else {
+    const radius = Math.min(
+      Math.max(0, layer.cornerRadius),
+      width / 2,
+      height / 2,
+    );
+    const control = radius * kappa;
+    knots = [
+      {
+        linked: radius > 0,
+        points: [radius - control, 0, radius, 0, radius, 0],
+      },
+      {
+        linked: radius > 0,
+        points: [
+          width - radius,
+          0,
+          width - radius,
+          0,
+          width - radius + control,
+          0,
+        ],
+      },
+      {
+        linked: radius > 0,
+        points: [width, radius - control, width, radius, width, radius],
+      },
+      {
+        linked: radius > 0,
+        points: [
+          width,
+          height - radius,
+          width,
+          height - radius,
+          width,
+          height - radius + control,
+        ],
+      },
+      {
+        linked: radius > 0,
+        points: [
+          width - radius + control,
+          height,
+          width - radius,
+          height,
+          width - radius,
+          height,
+        ],
+      },
+      {
+        linked: radius > 0,
+        points: [radius, height, radius, height, radius - control, height],
+      },
+      {
+        linked: radius > 0,
+        points: [
+          0,
+          height - radius + control,
+          0,
+          height - radius,
+          0,
+          height - radius,
+        ],
+      },
+      {
+        linked: radius > 0,
+        points: [0, radius, 0, radius, 0, radius - control],
+      },
+    ];
+  }
+
+  return {
+    open: false,
+    operation: "combine",
+    fillRule: "non-zero",
+    knots: knots.map((knot) => ({
+      linked: knot.linked,
+      points: transformBezierPoint(matrix, knot.points),
+    })),
+  };
+}
+
+function addShapeVectorMetadata(
+  psdLayer: PsdLayer,
+  layer: ShapeLayer,
+  matrix: Matrix,
+): void {
+  psdLayer.vectorFill = { type: "color", color: rgbColor(layer.fill) };
+  psdLayer.vectorMask = {
+    fillStartsWithAllPixels: false,
+    paths: [shapeVectorPath(layer, matrix)],
+  };
+  if (layer.stroke && layer.strokeWidth > 0) {
+    psdLayer.vectorStroke = {
+      strokeEnabled: true,
+      fillEnabled: true,
+      lineWidth: { units: "Pixels", value: layer.strokeWidth },
+      lineDashOffset: { units: "Pixels", value: 0 },
+      miterLimit: 100,
+      lineCapType: "butt",
+      lineJoinType: layer.cornerRadius > 0 ? "round" : "miter",
+      lineAlignment: "inside",
+      scaleLock: false,
+      strokeAdjust: false,
+      lineDashSet: [],
+      blendMode: "normal",
+      opacity: 1,
+      content: { type: "color", color: rgbColor(layer.stroke) },
+      resolution: 72,
+    };
+  }
+}
+
 function textSvg(layer: TextLayer): Buffer {
   const width = Math.max(1, Math.ceil(layer.width));
   const height = Math.max(1, Math.ceil(layer.height));
@@ -413,6 +579,10 @@ async function buildRasterLayer(
         justification: layer.align,
       },
     };
+  }
+
+  if (layer.type === "shape") {
+    addShapeVectorMetadata(psdLayer, layer, matrix);
   }
 
   if (inheritedVisible && layer.visible) {

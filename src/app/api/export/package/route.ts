@@ -13,6 +13,11 @@ import {
   parseAssetExportMetadata,
   parseExportPackageRequest,
 } from "@/lib/export-utils";
+import {
+  createExportDeadline,
+  type ExportDeadline,
+  ExportConcurrencyGate,
+} from "@/lib/export-coordinator";
 import { removeExportTemporaryDirectory } from "@/lib/export-temp";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import {
@@ -34,7 +39,7 @@ const EXPORT_TIMEOUT_MS = 60_000;
 const EXPORT_RATE_LIMIT = 5;
 const EXPORT_RATE_WINDOW_MS = 60_000;
 const MAX_CONCURRENT_EXPORTS = 2;
-const activeExports = new Map<string, number>();
+const exportConcurrency = new ExportConcurrencyGate(MAX_CONCURRENT_EXPORTS);
 
 interface AssetRow {
   id: string;
@@ -64,21 +69,11 @@ function ownsAsset(asset: AssetRow, userId: string): boolean {
 }
 
 function reserveExport(userId: string): boolean {
-  const current = activeExports.get(userId) ?? 0;
-  if (current >= MAX_CONCURRENT_EXPORTS) {
-    return false;
-  }
-  activeExports.set(userId, current + 1);
-  return true;
+  return exportConcurrency.reserve(userId);
 }
 
 function releaseExport(userId: string): void {
-  const current = activeExports.get(userId) ?? 0;
-  if (current <= 1) {
-    activeExports.delete(userId);
-  } else {
-    activeExports.set(userId, current - 1);
-  }
+  exportConcurrency.release(userId);
 }
 
 function assertWorkerTemporaryDirectory(path: string, taskId: string): string {
@@ -232,7 +227,7 @@ export async function POST(request: NextRequest) {
   let worker: Worker | undefined;
   let artifactPath: string | undefined;
   let temporaryDirectory: string | undefined;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let deadline: ExportDeadline | undefined;
   let closed = false;
   let released = false;
   let stop: (removeArtifact?: boolean) => Promise<void> = async () => {};
@@ -263,9 +258,7 @@ export async function POST(request: NextRequest) {
       };
 
       stop = async (removeArtifact = true): Promise<void> => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
+        deadline?.cancel();
         const activeWorker = worker;
         worker = undefined;
         if (activeWorker) {
@@ -290,9 +283,9 @@ export async function POST(request: NextRequest) {
       };
 
       write("progress", { status: "processing" });
-      timeout = setTimeout(() => {
+      deadline = createExportDeadline(EXPORT_TIMEOUT_MS, () => {
         void fail("Export timed out after 60 seconds.");
-      }, EXPORT_TIMEOUT_MS);
+      });
 
       request.signal.addEventListener(
         "abort",

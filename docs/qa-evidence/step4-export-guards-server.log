@@ -1,0 +1,44 @@
+▲ Next.js 16.2.12
+- Local:         http://localhost:3103
+- Network:       http://20.0.1.113:3103
+✓ Ready in 414ms
+Export worker progress {
+  taskId: 'c8108a5d-f854-4c95-8265-68f1e1131a80',
+  processId: 46956,
+  threadId: 1,
+  status: 'processing'
+}
+Export worker progress {
+  taskId: 'c8108a5d-f854-4c95-8265-68f1e1131a80',
+  processId: 46956,
+  threadId: 1,
+  status: 'rendering'
+}
+Export worker progress {
+  taskId: 'd5a37dc1-00ea-494a-b60f-a6bac2b49b3e',
+  processId: 46956,
+  threadId: 2,
+  status: 'processing'
+}
+Export worker progress {
+  taskId: 'd5a37dc1-00ea-494a-b60f-a6bac2b49b3e',
+  processId: 46956,
+  threadId: 2,
+  status: 'rendering'
+}
+Export worker progress {
+  taskId: '6e589abb-c430-435c-b902-fb7df82ab718',
+  processId: 46956,
+  threadId: 3,
+  status: 'processing'
+}
+Export worker progress {
+  taskId: '6e589abb-c430-435c-b902-fb7df82ab718',
+  processId: 46956,
+  threadId: 3,
+  status: 'rendering'
+}
+Export SSE abandoned {
+  userId: '2f649870-75ca-49a6-a697-55212e8d1c8a',
+  taskId: '6e589abb-c430-435c-b902-fb7df82ab718'
+}

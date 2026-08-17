@@ -87,6 +87,7 @@ export interface EditorStore extends EditorSnapshot {
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   addLayer: (layer: EditorLayer, index?: number) => void;
+  duplicateLayers: (ids?: readonly string[]) => void;
   updateLayer: (id: string, patch: EditorLayerPatch) => void;
   removeLayers: (ids?: readonly string[]) => void;
   reorderLayers: (orderedIds: readonly string[]) => void;
@@ -112,10 +113,16 @@ export const editorHistoryManager = new HistoryManager<EditorSnapshot>(
 );
 
 let groupSequence = 0;
+let duplicateSequence = 0;
 
 function createGroupId(): string {
   groupSequence += 1;
   return `group-${Date.now().toString(36)}-${groupSequence.toString(36)}`;
+}
+
+function createDuplicateId(): string {
+  duplicateSequence += 1;
+  return `layer-copy-${Date.now().toString(36)}-${duplicateSequence.toString(36)}`;
 }
 
 function cloneLayer(layer: EditorLayer): Draft<EditorLayer> {
@@ -282,6 +289,58 @@ export const useEditorStore = create<EditorStore>()(
               parent.childIds.push(nextLayer.id);
             }
           }
+        });
+      },
+
+      duplicateLayers: (ids) => {
+        const requestedIds = ids ?? get().selectedLayerIds;
+        if (requestedIds.length === 0) {
+          return;
+        }
+
+        commit("Duplicate layers", (state) => {
+          const layersById = new Map(
+            state.layers.map((layer) => [layer.id, layer as EditorLayer]),
+          );
+          const copiedIds = new Set<string>();
+          requestedIds.forEach((id) => {
+            collectLayerTree(id, layersById, copiedIds);
+          });
+          const idMap = new Map(
+            [...copiedIds].map((id) => [id, createDuplicateId()]),
+          );
+          const copies: Draft<EditorLayer>[] = [];
+          for (const layer of state.layers) {
+            if (!copiedIds.has(layer.id)) {
+              continue;
+            }
+            const nextId = idMap.get(layer.id);
+            if (!nextId) {
+              continue;
+            }
+            const copiedParentId = layer.parentId
+              ? idMap.get(layer.parentId)
+              : undefined;
+            const offset = copiedParentId ? 0 : 24;
+            const copy = cloneLayer(layer);
+            copy.id = nextId;
+            copy.name = `${layer.name} copy`;
+            copy.parentId = copiedParentId;
+            copy.x = layer.x + offset;
+            copy.y = layer.y + offset;
+            if (copy.type === "group") {
+              copy.childIds = copy.childIds.flatMap((childId) => {
+                const copiedChildId = idMap.get(childId);
+                return copiedChildId ? [copiedChildId] : [];
+              });
+            }
+            copies.push(copy);
+          }
+          state.layers.push(...copies);
+          state.selectedLayerIds = requestedIds.flatMap((id) => {
+            const copiedId = idMap.get(id);
+            return copiedId ? [copiedId] : [];
+          });
         });
       },
 

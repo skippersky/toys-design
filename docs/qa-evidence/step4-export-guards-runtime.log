@@ -1,0 +1,23 @@
+[A-13/B-08 Runtime Verify] 2026-08-12T08:56:12.745Z
+
+[Concurrency] started_at=2026-08-12T08:51:07.262Z
+[Concurrency] completed_at=2026-08-12T08:51:09.416Z
+[Concurrency] statuses=200,200,429
+[Concurrency] allowed=2 rejected=1 user=eba0ba85-6bfe-4e1d-b004-480b735bd670
+
+[Disconnect] started_at=2026-08-12T08:51:10.881Z
+[Disconnect] completed_at=2026-08-12T08:51:13.596Z
+[Disconnect] response_status=200
+[Disconnect] rendering_observed=true abandonment_logged=true
+[Disconnect] leaked_temp_directories=0
+
+[Deadline] configured_ms=60000
+[Deadline] started_at=2026-08-12T08:51:13.667Z
+[Deadline] fired_at=2026-08-12T08:52:13.683Z
+[Deadline] elapsed_ms=60014
+
+[URL Expiry] issued_expires_at=2026-08-12T08:56:09.073Z
+[URL Expiry] tested_at=2026-08-12T08:56:11.077Z
+[URL Expiry] status=400
+[URL Expiry] body={"statusCode":"400","error":"InvalidJWT","message":"\"exp\" claim timestamp check failed","code":"InvalidJWT"}
+[Server] worker_progress_logged=true

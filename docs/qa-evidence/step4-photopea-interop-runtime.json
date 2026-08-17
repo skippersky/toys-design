@@ -1,0 +1,45 @@
+{
+  "rows": [
+    [
+      "Runtime",
+      "Photopea"
+    ],
+    [
+      "Document",
+      "photopea-step4"
+    ],
+    [
+      "Root layers",
+      "QA Vector Badge [VECTOR EDITABLE], QA Text Group"
+    ],
+    [
+      "Text before",
+      "StatueForge QA"
+    ],
+    [
+      "Text after edit",
+      "StatueForge QA EDITED"
+    ],
+    [
+      "Text editable",
+      "PASS"
+    ],
+    [
+      "Shape layer",
+      "QA Vector Badge [VECTOR EDITABLE]"
+    ],
+    [
+      "Shape kind",
+      "3 (SOLIDFILL=true)"
+    ],
+    [
+      "Vector editable",
+      "PASS"
+    ],
+    [
+      "Verified at",
+      "2026-08-12T08:45:51.378Z"
+    ]
+  ],
+  "status": "Photopea returned live editability results."
+}

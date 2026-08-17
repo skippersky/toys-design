@@ -1,0 +1,12 @@
+[Remote Schema Verify] authenticated REST probes passed
+
+public.profiles
+columns: user_id, tier, credits
+column probe: HTTP 200
+
+public.assets
+columns: id, project_id, user_id, source_layer_id, metadata
+column probe: HTTP 200
+
+RPC decrement_credits exposed: true (insufficient result=false)
+Runtime concurrency: 20 attempts / 10 success / 10 rejected

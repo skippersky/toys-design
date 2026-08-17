@@ -153,6 +153,16 @@ describe("export worker", () => {
     expect(group?.children?.[0]?.blendMode).toBe("screen");
     expect(psd.children?.[1]?.opacity).toBeCloseTo(0.5, 2);
     expect(psd.children?.[1]?.blendMode).toBe("multiply");
+    expect(psd.children?.[1]?.vectorMask?.paths).toHaveLength(1);
+    expect(psd.children?.[1]?.vectorFill).toEqual({
+      type: "color",
+      color: { r: 204, g: 51, b: 0 },
+    });
+    expect(psd.children?.[1]?.vectorStroke?.strokeEnabled).toBe(true);
+    expect(psd.children?.[1]?.vectorStroke?.lineWidth).toEqual({
+      units: "Pixels",
+      value: 2,
+    });
   });
 
   it("streams the expected sanitized package files into a ZIP", async () => {
